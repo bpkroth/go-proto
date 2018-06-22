@@ -40,9 +40,11 @@ func prefix(m proto.Message) ([binary.MaxVarintLen32]byte, int) {
 // ReadLengthPrefixedCollection reads a collection of protocol buffer messages from the supplied reader.
 // Each message is presumed prefixed by a 32 bit varint which represents the size of the ensuing message.
 // The UnmarshalFunc argument is a supplied callback used to convert the raw bytes read as a message to the desired message type.
+// The maxMsgs argument specifies a little after which we cease reading.  Set to a value <= 0 to read forever.
 // The protocol buffer message collection is returned, along with any error arising.
+// Use of Deadlines and Timeout() errors can be handled independently on net.Conn style io.Readers, but the err needs to be checked for that condition using .(type) assertions.
 // For more detailed information on this approach, see the official protocol buffer documentation https://developers.google.com/protocol-buffers/docs/techniques#streaming.
-func ReadLengthPrefixedCollection(r io.Reader, f message.UnmarshalFunc) (pbs collection.MessageCollection, err error) {
+func ReadLengthPrefixedCollection(r io.Reader, f message.UnmarshalFunc, maxMsgs int) (pbs collection.MessageCollection, err error) {
 	for {
 		var prefixBuf [binary.MaxVarintLen32]byte
 		var bytesRead, varIntBytes int
@@ -85,6 +87,10 @@ func ReadLengthPrefixedCollection(r io.Reader, f message.UnmarshalFunc) (pbs col
 		}
 
 		pbs = append(pbs, pb)
+
+		if len(pbs) == maxMsgs {
+			return pbs, nil
+		}
 	}
 }
 
